@@ -1,2 +1,3 @@
 certs-dev
 static/.well-known/apple-developer-merchantid-domain-association
+vendor/

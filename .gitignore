@@ -22,3 +22,6 @@
 *.pem
 
 partner*
+
+vendor/
+example/vendor
