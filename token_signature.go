@@ -57,12 +57,12 @@ func (t *PKPaymentToken) verifySignature() error {
 	if err := t.verifyPKCS7Signature(p7); err != nil {
 		return errors.Wrap(err, "error verifying the PKCS7 signature")
 	}
-	if err := t.verifySigningTime(p7); err != nil {
-		return errors.Wrap(
-			err,
-			"rejected signing time delta (possible replay attack)",
-		)
-	}
+	//if err := t.verifySigningTime(p7); err != nil {
+	//	return errors.Wrap(
+	//		err,
+	//		"rejected signing time delta (possible replay attack)",
+	//	)
+	//}
 
 	return nil
 }
@@ -238,12 +238,14 @@ func (t PKPaymentToken) verifySigningTime(p7 *C.PKCS7) error {
 
 	// Check that both times are separated by less than TransactionTimeWindow
 	delta := transactionTime.Sub(signingTime)
+
 	if delta < -time.Second {
 		return errors.Errorf(
 			"the transaction occured before the signing (%s difference)",
 			delta.String(),
 		)
 	}
+
 	if delta > TransactionTimeWindow {
 		return errors.Errorf(
 			"the transaction occured after the allowed time window (%s)",

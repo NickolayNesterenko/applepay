@@ -100,7 +100,7 @@ var (
 func SetApplePayRootCert(path string) error {
 	_, err := os.Stat(path)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "root certificate not found or cannot be accessed")
 	}
 
 	m.Lock()
