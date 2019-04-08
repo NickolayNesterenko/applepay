@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"os"
+	"sync"
 )
 
 type (
@@ -84,14 +86,29 @@ const (
 
 var (
 	// This section contains all modifiable settings of the package
+	m sync.Mutex
 
-	// AppleRootCertificatePath is the relative path to Apple's root certificate
-	AppleRootCertificatePath = "AppleRootCA-G3.crt"
+	// appleRootCertificatePath is the relative path to Apple's root certificate
+	appleRootCertificatePath = "AppleRootCA-G3.crt"
 
 	// TransactionTimeWindow is the window of time, in minutes, where
 	// transactions can fit to limit replay attacks
 	TransactionTimeWindow = 5 * time.Minute
 )
+
+// SetApplePayRootCertPath sets apple pay root DER certificate file.
+func SetApplePayRootCert(path string) error {
+	_, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+
+	m.Lock()
+	appleRootCertificatePath = path
+	m.Unlock()
+
+	return nil
+}
 
 // PublicKeyHash returns the hash of the public key used in the token after
 // checking the message's signature. This is useful for selecting the

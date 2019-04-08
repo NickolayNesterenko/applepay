@@ -21,7 +21,7 @@ import (
 
 func init() {
 	TransactionTimeWindow = time.Duration(math.MaxInt64)
-	AppleRootCertificatePath = "AppleRootCA-G3.cer"
+	appleRootCertificatePath = "AppleRootCA-G3.cer"
 }
 
 func TestDecryptResponse(t *testing.T) {

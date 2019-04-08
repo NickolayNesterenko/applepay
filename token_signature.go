@@ -45,7 +45,7 @@ func (t *PKPaymentToken) verifySignature() error {
 	if err != nil {
 		return errors.Wrap(err, "error decoding the token signature")
 	}
-	root, err := loadCertificate(AppleRootCertificatePath)
+	root, err := loadCertificate(appleRootCertificatePath)
 	if err != nil {
 		return errors.Wrap(err, "error loading the root certificate")
 	}

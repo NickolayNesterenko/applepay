@@ -139,7 +139,7 @@ func TestLoadRootCertificate(t *testing.T) {
 	})
 
 	Convey("Apple's actual root certificate is loaded properly", t, func() {
-		cert, err := loadCertificate(AppleRootCertificatePath)
+		cert, err := loadCertificate(appleRootCertificatePath)
 
 		Convey("cert is not nil", func() {
 			So(cert, ShouldNotBeNil)
@@ -152,7 +152,7 @@ func TestLoadRootCertificate(t *testing.T) {
 }
 
 func TestVerifyCertificates(t *testing.T) {
-	appleRoot, _ := loadCertificate(AppleRootCertificatePath)
+	appleRoot, _ := loadCertificate(appleRootCertificatePath)
 
 	rootTpl := &x509.Certificate{
 		SerialNumber: big.NewInt(0),
