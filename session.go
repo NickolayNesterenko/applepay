@@ -29,7 +29,7 @@ var (
 
 // Session returns an opaque payload for setting up an Apple Pay session
 func (m Merchant) Session(url string) (sessionPayload []byte, err error) {
-	if m.merchantCertificate == nil {
+	if m.merchantCertificateTLS == nil {
 		return nil, errors.New("nil merchant certificate")
 	}
 	// Verify that the session URL is Apple's
@@ -72,7 +72,7 @@ func checkSessionURL(location string) error {
 // sessionRequest builds a request struct for Apple Pay sessions
 func (m Merchant) sessionRequest() *sessionRequest {
 	return &sessionRequest{
-		MerchantIdentifier: m.identifier,
+		MerchantIdentifier: string(m.id),
 		DomainName:         m.domainName,
 		DisplayName:        m.displayName,
 	}
@@ -85,7 +85,7 @@ func (m Merchant) authenticatedClient() *http.Client {
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				Certificates: []tls.Certificate{
-					*m.merchantCertificate,
+					*m.merchantCertificateTLS,
 				},
 			},
 		},

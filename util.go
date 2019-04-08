@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"golang.org/x/crypto/pkcs12"
 )
 
 type (
@@ -64,6 +65,14 @@ func extractMerchantHash(cert tls.Certificate) ([]byte, error) {
 	return []byte(merchantIDString), nil
 }
 
+func parsePKCS12Data(certificateData []byte, password string) (interface{}, *x509.Certificate, error) {
+	pkey, cert, err := pkcs12.Decode(certificateData, password)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "cannot decode pkcs12 data")
+	}
+	return pkey, cert, nil
+}
+
 // extractExtension returns the value of a certificate extension if it exists
 func extractExtension(cert *x509.Certificate, oid asn1.ObjectIdentifier) (
 	[]byte, error) {
@@ -96,7 +105,7 @@ func mustParseASN1ObjectIdentifier(id string) asn1.ObjectIdentifier {
 	return oid
 }
 
-// parseASN1ObjectIdentifier parses an ASN.1 object identifier string of the
+// parseASN1ObjectIdentifier parses an ASN.1 object id string of the
 // form x.x.x.x.x.x.x.x into a Go asn1.ObjectIdentifier
 func parseASN1ObjectIdentifier(id string) (asn1.ObjectIdentifier, error) {
 	idSplit := strings.Split(id, ".")

@@ -8,8 +8,8 @@ Sample usage:
 	 "com.processout.test",
 	 applepay.MerchantDisplayName("ProcessOut Test Store"),
 	 applepay.MerchantDomainName("store.processout.com"),
-	 applepay.MerchantCertificateLocation("cert-merchant.crt", "cert-merchant-key.pem"),
-	 applepay.ProcessingCertificateLocation("cert-processing.crt", "cert-processing-key.pem"),
+	 applepay.MerchantPemCertificateLocation("cert-merchant.crt", "cert-merchant-key.pem"),
+	 applepay.ProcessingPemCertificateLocation("cert-processing.crt", "cert-processing-key.pem"),
  )
 
  // Create a new session

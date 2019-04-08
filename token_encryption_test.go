@@ -21,6 +21,7 @@ import (
 
 func init() {
 	TransactionTimeWindow = time.Duration(math.MaxInt64)
+	AppleRootCertificatePath = "AppleRootCA-G3.cer"
 }
 
 func TestDecryptResponse(t *testing.T) {
@@ -34,8 +35,8 @@ func TestDecryptResponse(t *testing.T) {
 	}
 
 	m, _ := New(
-		"merchant.com.processout.test",
-		ProcessingCertificateLocation(
+		IDFromString("merchant.com.processout.test"),
+		ProcessingPemCertificateLocation(
 			"tests/certs/cert-processing.crt",
 			"tests/certs/cert-processing-key.pem",
 		),
@@ -76,25 +77,25 @@ func TestDecryptResponse(t *testing.T) {
 }
 
 func TestDecryptToken(t *testing.T) {
-	if _, err := os.Stat("tests/certs/cert-processing-rsa.crt"); os.IsNotExist(err) {
-		t.Skip()
-		return
-	}
-	if _, err := os.Stat("tests/certs/cert-processing.crt"); os.IsNotExist(err) {
-		t.Skip()
-		return
-	}
+	//if _, err := os.Stat("tests/certs/cert-processing-rsa.crt"); os.IsNotExist(err) {
+	//	t.Skip()
+	//	return
+	//}
+	//if _, err := os.Stat("tests/certs/cert-processing.crt"); os.IsNotExist(err) {
+	//	t.Skip()
+	//	return
+	//}
 
 	mEC, _ := New(
-		"merchant.com.processout.test",
-		ProcessingCertificateLocation(
+		IDFromString("merchant.com.processout.test"),
+		ProcessingPemCertificateLocation(
 			"tests/certs/cert-processing.crt",
 			"tests/certs/cert-processing-key.pem",
 		),
 	)
 	mRSA, _ := New(
-		"merchant.com.processout.test-rsa",
-		ProcessingCertificateLocation(
+		IDFromString("merchant.com.processout.test-rsa"),
+		ProcessingPemCertificateLocation(
 			"tests/certs/cert-processing-rsa.crt",
 			"tests/certs/cert-processing-rsa-key.pem",
 		),
@@ -127,8 +128,8 @@ func TestDecryptToken(t *testing.T) {
 
 	Convey("Key computation errors are caught", t, func() {
 		m2 := &Merchant{
-			merchantCertificate:   mEC.merchantCertificate,
-			processingCertificate: mEC.merchantCertificate,
+			merchantCertificateTLS:   mEC.merchantCertificateTLS,
+			processingCertificateTLS: mEC.merchantCertificateTLS,
 		}
 
 		res, err := m2.DecryptToken(ecToken)
@@ -144,8 +145,8 @@ func TestDecryptToken(t *testing.T) {
 
 	Convey("Decryption errors are caught", t, func() {
 		m2 := &Merchant{
-			merchantCertificate:   mEC.merchantCertificate,
-			processingCertificate: mEC.processingCertificate,
+			merchantCertificateTLS:   mEC.merchantCertificateTLS,
+			processingCertificateTLS: mEC.processingCertificateTLS,
 		}
 
 		res, err := m2.DecryptToken(ecToken)
@@ -158,6 +159,7 @@ func TestDecryptToken(t *testing.T) {
 			So(err.Error(), ShouldStartWith, "error decrypting the token")
 		})
 	})
+
 
 	Convey("Valid EC tokens are decrypted properly", t, func() {
 		res, err := mEC.DecryptToken(ecToken)
@@ -229,8 +231,8 @@ func TestComputeEncryptionKey(t *testing.T) {
 	}
 
 	m, _ := New(
-		"merchant.com.processout.test",
-		ProcessingCertificateLocation(
+		IDFromString("merchant.com.processout.test"),
+		ProcessingPemCertificateLocation(
 			"tests/certs/cert-processing.crt",
 			"tests/certs/cert-processing-key.pem",
 		),
@@ -253,12 +255,12 @@ func TestComputeEncryptionKey(t *testing.T) {
 
 	Convey("Non-elliptic processing keys are rejected", t, func() {
 		m2 := &Merchant{
-			merchantCertificate: m.merchantCertificate,
+			merchantCertificateTLS: m.merchantCertificateTLS,
 		}
 		tpl := &x509.Certificate{SerialNumber: big.NewInt(0)}
 		mKey, _ := rsa.GenerateKey(rand.Reader, 2048)
 		mCertB, _ := x509.CreateCertificate(rand.Reader, tpl, tpl, &mKey.PublicKey, mKey)
-		m2.processingCertificate = &tls.Certificate{
+		m2.processingCertificateTLS = &tls.Certificate{
 			Certificate: [][]byte{mCertB},
 		}
 
@@ -392,8 +394,8 @@ func TestUnwrapEncryptionKey(t *testing.T) {
 	}
 
 	m, _ := New(
-		"merchant.com.processout.test-rsa",
-		ProcessingCertificateLocation(
+		IDFromString("merchant.com.processout.test-rsa"),
+		ProcessingPemCertificateLocation(
 			"tests/certs/cert-processing-rsa.crt",
 			"tests/certs/cert-processing-rsa-key.pem",
 		),
@@ -404,13 +406,13 @@ func TestUnwrapEncryptionKey(t *testing.T) {
 
 	Convey("Non-RSA private key does not work", t, func() {
 		m2 := &Merchant{
-			merchantCertificate: m.merchantCertificate,
+			merchantCertificateTLS: m.merchantCertificateTLS,
 		}
 		processingCertificate, _ := tls.LoadX509KeyPair(
 			"tests/certs/cert-processing.crt",
 			"tests/certs/cert-processing-key.pem",
 		)
-		m2.processingCertificate = &processingCertificate
+		m2.processingCertificateTLS = &processingCertificate
 
 		res, err := m2.unwrapEncryptionKey(token)
 

@@ -21,7 +21,7 @@ func (m Merchant) DecryptResponse(r *Response) (*Token, error) {
 
 // DecryptToken decrypts an Apple Pay token
 func (m Merchant) DecryptToken(t *PKPaymentToken) (*Token, error) {
-	if m.processingCertificate == nil {
+	if m.processingCertificateTLS == nil && m.processingCertificatePKCS12 == nil {
 		return nil, errors.New("nil processing certificate")
 	}
 	// Verify the signature before anything
@@ -67,16 +67,26 @@ func (m Merchant) computeEncryptionKey(t *PKPaymentToken) ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to parse the public key")
 	}
-	priv, ok := m.processingCertificate.PrivateKey.(*ecdsa.PrivateKey)
+	var (
+		private *ecdsa.PrivateKey
+		ok bool
+	)
+	if m.processingCertificateTLS != nil {
+		private, ok = m.processingCertificateTLS.PrivateKey.(*ecdsa.PrivateKey)
+	} else if m.processingCertificatePKCS12 != nil {
+		private, ok = m.processingCertificatePKCS12.privateKey.(*ecdsa.PrivateKey)
+	} else {
+		return nil, errors.New("processing private key is not set")
+	}
 	if !ok {
 		return nil, errors.New("non-elliptic processing private key")
 	}
 
 	// Generate the shared secret
-	sharedSecret := ecdheSharedSecret(pub, priv)
+	sharedSecret := ecdheSharedSecret(pub, private)
 
 	// Final key derivation from the shared secret and the hash of the merchant ID
-	key := deriveEncryptionKey(sharedSecret, m.identifierHash())
+	key := deriveEncryptionKey(sharedSecret, m.idHash)
 
 	return key, nil
 }
@@ -133,7 +143,7 @@ func deriveEncryptionKey(sharedSecret *big.Int, merchantIDHash []byte) []byte {
 // encryption key stored in the token
 // It is only used for the RSA_v1 format
 func (m Merchant) unwrapEncryptionKey(t *PKPaymentToken) ([]byte, error) {
-	priv, ok := m.processingCertificate.PrivateKey.(*rsa.PrivateKey)
+	priv, ok := m.processingCertificateTLS.PrivateKey.(*rsa.PrivateKey)
 	if !ok {
 		return nil, errors.New("processing key is not RSA")
 	}

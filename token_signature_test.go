@@ -43,7 +43,7 @@ func TestVerifySignature(t *testing.T) {
 
 func TestLoadRootCertificate(t *testing.T) {
 	Convey("Inexisting root certificates produce an error", t, func() {
-		cert, err := loadRootCertificate("/tmp/inexisting.crt")
+		cert, err := loadCertificate("/tmp/inexisting.crt")
 
 		Convey("cert is nil", func() {
 			So(cert, ShouldBeNil)
@@ -60,7 +60,7 @@ func TestLoadRootCertificate(t *testing.T) {
 		defer os.Remove(f.Name())
 		f.WriteString("invalid pem block")
 
-		cert, err := loadRootCertificate(f.Name())
+		cert, err := loadCertificate(f.Name())
 
 		Convey("cert is nil", func() {
 			So(cert, ShouldBeNil)
@@ -81,7 +81,7 @@ func TestLoadRootCertificate(t *testing.T) {
 		})
 		f.WriteString("invalid trailing data")
 
-		cert, err := loadRootCertificate(f.Name())
+		cert, err := loadCertificate(f.Name())
 
 		Convey("cert is nil", func() {
 			So(cert, ShouldBeNil)
@@ -101,7 +101,7 @@ func TestLoadRootCertificate(t *testing.T) {
 			Bytes: []byte("this is an invalid certificate"),
 		})
 
-		cert, err := loadRootCertificate(f.Name())
+		cert, err := loadCertificate(f.Name())
 
 		Convey("cert is nil", func() {
 			So(cert, ShouldBeNil)
@@ -127,7 +127,7 @@ func TestLoadRootCertificate(t *testing.T) {
 			Bytes: genCert,
 		})
 
-		cert, err := loadRootCertificate(f.Name())
+		cert, err := loadCertificate(f.Name())
 
 		Convey("cert is nil", func() {
 			So(cert, ShouldBeNil)
@@ -139,7 +139,7 @@ func TestLoadRootCertificate(t *testing.T) {
 	})
 
 	Convey("Apple's actual root certificate is loaded properly", t, func() {
-		cert, err := loadRootCertificate(AppleRootCertificatePath)
+		cert, err := loadCertificate(AppleRootCertificatePath)
 
 		Convey("cert is not nil", func() {
 			So(cert, ShouldNotBeNil)
@@ -152,7 +152,7 @@ func TestLoadRootCertificate(t *testing.T) {
 }
 
 func TestVerifyCertificates(t *testing.T) {
-	appleRoot, _ := loadRootCertificate(AppleRootCertificatePath)
+	appleRoot, _ := loadCertificate(AppleRootCertificatePath)
 
 	rootTpl := &x509.Certificate{
 		SerialNumber: big.NewInt(0),

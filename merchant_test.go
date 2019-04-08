@@ -10,17 +10,6 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	Convey("Invalid merchant information is rejected", t, func() {
-		m, err := New("invalid.id")
-
-		Convey("m should be nil", func() {
-			So(m, ShouldBeNil)
-		})
-
-		Convey("err should be correct", func() {
-			So(err.Error(), ShouldStartWith, "merchant ID should start with")
-		})
-	})
 
 	if _, err := os.Stat("tests/certs/cert-merchant.crt"); os.IsNotExist(err) {
 		t.Skip()
@@ -33,8 +22,8 @@ func TestNew(t *testing.T) {
 
 	Convey("Invalid certificates are rejected", t, func() {
 		m, err := New(
-			"merchant.com.processout.test",
-			MerchantCertificateLocation(
+			IDFromString("merchant.com.processout.test"),
+			MerchantPemCertificateLocation(
 				"tests/certs/does-not-exist.crt",
 				"tests/certs/does-not-exist-key.pem",
 			),
@@ -51,12 +40,12 @@ func TestNew(t *testing.T) {
 
 	Convey("Checks pass with our EC test configuration", t, func() {
 		m, err := New(
-			"merchant.com.processout.test",
-			MerchantCertificateLocation(
+			IDFromString("merchant.com.processout.test"),
+			MerchantPemCertificateLocation(
 				"tests/certs/cert-merchant.crt",
 				"tests/certs/cert-merchant-key.pem",
 			),
-			ProcessingCertificateLocation(
+			ProcessingPemCertificateLocation(
 				"tests/certs/cert-processing.crt",
 				"tests/certs/cert-processing-key.pem",
 			),
@@ -73,12 +62,12 @@ func TestNew(t *testing.T) {
 
 	Convey("Checks pass with our RSA test configuration", t, func() {
 		m, err := New(
-			"merchant.com.processout.test-rsa",
-			MerchantCertificateLocation(
+			IDFromString("merchant.com.processout.test-rsa"),
+			MerchantPemCertificateLocation(
 				"tests/certs/cert-merchant-rsa.crt",
 				"tests/certs/cert-merchant-rsa-key.pem",
 			),
-			ProcessingCertificateLocation(
+			ProcessingPemCertificateLocation(
 				"tests/certs/cert-processing-rsa.crt",
 				"tests/certs/cert-processing-rsa-key.pem",
 			),
@@ -105,10 +94,10 @@ func TestMerchantCertificates(t *testing.T) {
 	}
 
 	Convey("Loading an EC key does not work", t, func() {
-		err := MerchantCertificateLocation(
+		err := MerchantPemCertificateLocation(
 			"tests/certs/cert-processing.crt",
 			"tests/certs/cert-processing-key.pem",
-		)(&Merchant{identifier: "merchant.com.processout.test"})
+		)(&Merchant{id: []byte("merchant.com.processout.test")})
 
 		Convey("err should be correct", func() {
 			So(err.Error(), ShouldStartWith, "merchant key should be RSA")
@@ -116,10 +105,10 @@ func TestMerchantCertificates(t *testing.T) {
 	})
 
 	Convey("Merchant ID must be correct", t, func() {
-		err := MerchantCertificateLocation(
+		err := MerchantPemCertificateLocation(
 			"tests/certs/cert-merchant.crt",
 			"tests/certs/cert-merchant-key.pem",
-		)(&Merchant{identifier: "merchant.com.processout.test.incorrect"})
+		)(&Merchant{id: []byte("merchant.com.processout.test.incorrect")})
 
 		Convey("err should be correct", func() {
 			So(err.Error(), ShouldStartWith, "invalid merchant certificate or merchant ID")
@@ -127,8 +116,8 @@ func TestMerchantCertificates(t *testing.T) {
 	})
 
 	Convey("Valid certificates work", t, func() {
-		m := &Merchant{identifier: "merchant.com.processout.test"}
-		err := MerchantCertificateLocation(
+		m := &Merchant{id: []byte("merchant.com.processout.test")}
+		err := MerchantPemCertificateLocation(
 			"tests/certs/cert-merchant.crt",
 			"tests/certs/cert-merchant-key.pem",
 		)(m)
@@ -137,8 +126,8 @@ func TestMerchantCertificates(t *testing.T) {
 			So(err, ShouldBeNil)
 		})
 
-		Convey("merchantCertificate should not be empty", func() {
-			So(m.merchantCertificate, ShouldNotResemble, tls.Certificate{})
+		Convey("merchantCertificateTLS should not be empty", func() {
+			So(m.merchantCertificateTLS, ShouldNotResemble, tls.Certificate{})
 		})
 	})
 }
@@ -154,10 +143,10 @@ func TestProcessingCertificates(t *testing.T) {
 	}
 
 	Convey("Merchant ID must be correct", t, func() {
-		err := ProcessingCertificateLocation(
+		err := ProcessingPemCertificateLocation(
 			"tests/certs/cert-processing.crt",
 			"tests/certs/cert-processing-key.pem",
-		)(&Merchant{identifier: "merchant.com.processout.test.incorrect"})
+		)(&Merchant{id: []byte("merchant.com.processout.test.incorrect")})
 
 		Convey("err should be correct", func() {
 			So(err.Error(), ShouldStartWith, "invalid processing certificate or merchant ID")
@@ -165,8 +154,8 @@ func TestProcessingCertificates(t *testing.T) {
 	})
 
 	Convey("Valid certificates work", t, func() {
-		m := &Merchant{identifier: "merchant.com.processout.test"}
-		err := ProcessingCertificateLocation(
+		m := &Merchant{id: []byte("merchant.com.processout.test")}
+		err := ProcessingPemCertificateLocation(
 			"tests/certs/cert-processing.crt",
 			"tests/certs/cert-processing-key.pem",
 		)(m)
@@ -175,8 +164,8 @@ func TestProcessingCertificates(t *testing.T) {
 			So(err, ShouldBeNil)
 		})
 
-		Convey("merchantCertificate should not be empty", func() {
-			So(m.merchantCertificate, ShouldNotResemble, tls.Certificate{})
+		Convey("merchantCertificateTLS should not be empty", func() {
+			So(m.merchantCertificateTLS, ShouldNotResemble, tls.Certificate{})
 		})
 	})
 }

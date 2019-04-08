@@ -51,7 +51,7 @@ type (
 		TransactionAmount float64
 		// CardholderName is the name on the card
 		CardholderName string
-		// DeviceManufacturerIdentifier is a hex-encoded device manufacturer identifier
+		// DeviceManufacturerIdentifier is a hex-encoded device manufacturer id
 		DeviceManufacturerIdentifier string
 		// PaymentDataType is either 3DSecure or, if using Apple Pay in China, EMV
 		PaymentDataType string

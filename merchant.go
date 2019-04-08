@@ -5,27 +5,40 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/tls"
-	"strings"
+	"crypto/x509"
+	"encoding/base64"
 
 	"github.com/pkg/errors"
+	"encoding/hex"
 )
 
 type (
+	certificatePKCS12 struct {
+		certificateX509 *x509.Certificate
+		privateKey interface{}
+	}
+
 	Merchant struct {
 		// General configuration
-		identifier  string
+		id          []byte
+		idHash      []byte
 		displayName string
 		domainName  string
 
-		// Merchant Identity Certificate
-		merchantCertificate *tls.Certificate
-		// Payment Processing Certificate
-		processingCertificate *tls.Certificate
+		// Merchant Identity TLS Certificate
+		merchantCertificateTLS *tls.Certificate
+
+		// Payment Processing TLS Certificate
+		processingCertificateTLS *tls.Certificate
+		// Payment Processing X509 Certificate
+		processingCertificatePKCS12 *certificatePKCS12
+
+		cfgValidators []func(*Merchant) error
 	}
 )
 
 var (
-	// merchantIDHashOID is the ASN.1 object identifier of Apple's extension
+	// merchantIDHashOID is the ASN.1 object id of Apple's extension
 	// for merchant ID hash in merchant/processing certificates
 	merchantIDHashOID = mustParseASN1ObjectIdentifier(
 		"1.2.840.113635.100.6.32",
@@ -33,25 +46,46 @@ var (
 )
 
 // New creates an instance of Merchant using the given configuration
-func New(merchantID string, options ...func(*Merchant) error) (*Merchant, error) {
-	if !strings.HasPrefix(merchantID, "merchant.") {
-		return nil, errors.New("merchant ID should start with `merchant.`")
+func New(options ...func(*Merchant) error) (*Merchant, error) {
+	m := &Merchant{
+		cfgValidators: make([]func(*Merchant) error, 1),
+	}
+	m.cfgValidators[0] = func(m *Merchant) error {
+		if m.id == nil {
+			return errors.New("merchant id is not set")
+		}
+		return nil
 	}
 
-	m := &Merchant{identifier: merchantID}
 	for _, option := range options {
 		err := option(m)
 		if err != nil {
 			return nil, err
 		}
 	}
+
+	for _, validator := range m.cfgValidators {
+		if err := validator(m); err != nil {
+			return nil, err
+		}
+	}
+
 	return m, nil
+}
+
+// MerchantStringID directly sets merchant id from string.
+func IDFromString(merchantID string) func(*Merchant) error {
+	return func(m *Merchant) error {
+		m.id = []byte(merchantID)
+		m.idHash = m.identifierHash()
+		return nil
+	}
 }
 
 // identifierHash hashes m.config.MerchantIdentifier with SHA-256
 func (m *Merchant) identifierHash() []byte {
 	h := sha256.New()
-	h.Write([]byte(m.identifier))
+	h.Write(m.id)
 	return h.Sum(nil)
 }
 
@@ -69,56 +103,93 @@ func MerchantDomainName(domainName string) func(*Merchant) error {
 	}
 }
 
-func MerchantCertificate(cert tls.Certificate) func(*Merchant) error {
+func MerchantCertificateTLS(cert tls.Certificate) func(*Merchant) error {
 	return func(m *Merchant) error {
-		// Check that the certificate is RSA
-		if _, ok := cert.PrivateKey.(*rsa.PrivateKey); !ok {
-			return errors.New("merchant key should be RSA")
-		}
-		// Verify merchant ID
-		hash, err := extractMerchantHash(cert)
-		if err != nil {
-			return errors.Wrap(err, "error reading the certificate")
-		}
-		if !bytes.Equal(hash, m.identifierHash()) {
-			return errors.New("invalid merchant certificate or merchant ID")
-		}
-		m.merchantCertificate = &cert
+		m.merchantCertificateTLS = &cert
+		m.cfgValidators = append(m.cfgValidators, func(m *Merchant) error {
+			// Check that the certificate is RSA
+			if _, ok := cert.PrivateKey.(*rsa.PrivateKey); !ok {
+				return errors.New("merchant key should be RSA")
+			}
+			// Verify merchant ID
+			hash, err := extractMerchantHash(cert)
+			if err != nil {
+				return errors.Wrap(err, "error reading the certificate")
+			}
+			if !bytes.Equal(hash, m.idHash) {
+				return errors.New("invalid merchant certificate or merchant ID")
+			}
+			return nil
+		})
 		return nil
 	}
 }
 
-func ProcessingCertificate(cert tls.Certificate) func(*Merchant) error {
+func ProcessingCertificateTLS(cert tls.Certificate) func(*Merchant) error {
 	return func(m *Merchant) error {
-		// Verify merchant ID
-		hash, err := extractMerchantHash(cert)
-		if err != nil {
-			return errors.Wrap(err, "error reading the certificate")
-		}
-		if !bytes.Equal(hash, m.identifierHash()) {
-			return errors.New("invalid processing certificate or merchant ID")
-		}
-		m.processingCertificate = &cert
+		m.processingCertificateTLS = &cert
+		m.cfgValidators = append(m.cfgValidators, func(m *Merchant) error {
+			// Verify merchant ID
+			hash, err := extractMerchantHash(cert)
+			if err != nil {
+				return errors.Wrap(err, "error reading the certificate")
+			}
+			if !bytes.Equal(hash, m.idHash) {
+				return errors.New("invalid processing certificate or merchant ID")
+			}
+			return nil
+		})
 		return nil
 	}
 }
 
-func MerchantCertificateLocation(certLocation,
-	keyLocation string) func(*Merchant) error {
+// ProcessingCertificatePKCS12 parses base64 encoded PKCS12 certificate from string
+// and sets merchant id from certificate extension if not set.
+func ProcessingCertificatePKCS12(cert string, password string) func(*Merchant) error {
+	return func(m *Merchant) error {
+		certDecoded, err := base64.StdEncoding.DecodeString(cert)
+		if err != nil {
+			return errors.Wrap(err, "cannot decode base64 data")
+		}
 
-	return loadCertificate(certLocation, keyLocation, MerchantCertificate)
+		pkey, certificate, err := parsePKCS12Data(certDecoded, password)
+		if err != nil {
+			return err
+		}
+
+		m.processingCertificatePKCS12 = new(certificatePKCS12)
+		m.processingCertificatePKCS12.certificateX509 = certificate
+		m.processingCertificatePKCS12.privateKey = pkey
+
+		if m.id == nil {
+			if extValue, err := extractExtension(certificate, merchantIDHashOID); err == nil {
+				m.id = extValue[2:]
+				m.idHash = make([]byte, hex.DecodedLen(len(m.id)))
+				_, err := hex.Decode(m.idHash, m.id)
+				if err != nil {
+					return errors.Wrap(err, "cannot decode merchant id to binary")
+				}
+			}
+		}
+
+		return nil
+	}
 }
 
-func ProcessingCertificateLocation(certLocation,
+
+func MerchantPemCertificateLocation(certLocation,
 	keyLocation string) func(*Merchant) error {
 
-	return loadCertificate(certLocation, keyLocation, ProcessingCertificate)
+	return loadCertificateTLS(certLocation, keyLocation, MerchantCertificateTLS)
 }
 
-func loadCertificate(certLocation, keyLocation string,
-	callback func(tls.Certificate) func(*Merchant) error) func(
-	*Merchant) error {
+func ProcessingPemCertificateLocation(certLocation,
+	keyLocation string) func(*Merchant) error {
 
+	return loadCertificateTLS(certLocation, keyLocation, ProcessingCertificateTLS)
+}
+
+func loadCertificateTLS(certLocation, keyLocation string, callback func(tls.Certificate) func(*Merchant) error) func(*Merchant) error {
 	return func(m *Merchant) error {
 		cert, err := tls.LoadX509KeyPair(certLocation, keyLocation)
 		if err != nil {

@@ -6,4 +6,4 @@ import:
   - spew
 - package: github.com/gin-gonic/gin
   version: v1.2
-- package: github.com/processout/applepay
+- package: github.com/NickolayNesterenko/applepay

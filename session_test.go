@@ -12,7 +12,7 @@ import (
 
 func TestSession(t *testing.T) {
 	Convey("Nil merchant certificates are rejected", t, func() {
-		m, _ := New("merchant.com.processout.test")
+		m, _ := New(IDFromString("merchant.com.processout.test"))
 		res, err := m.Session("https://apple-pay-gateway.apple.com/paymentservices/startSession")
 
 		Convey("res should be nil", func() {
@@ -34,10 +34,10 @@ func TestSession(t *testing.T) {
 	}
 
 	m, _ := New(
-		"merchant.com.processout.test",
+		IDFromString("merchant.com.processout.test"),
 		MerchantDisplayName("example merchant"),
 		MerchantDomainName("test.processout.com"),
-		MerchantCertificateLocation(
+		MerchantPemCertificateLocation(
 			"tests/certs/cert-merchant.crt",
 			"tests/certs/cert-merchant-key.pem",
 		),
@@ -131,7 +131,7 @@ func TestCheckSessionURL(t *testing.T) {
 func TestSessionRequest(t *testing.T) {
 	Convey("The config should be used", t, func() {
 		m := &Merchant{
-			identifier:  "merchant.com.example",
+			id:          []byte("merchant.com.example"),
 			displayName: "example",
 			domainName:  "example.com",
 		}
@@ -148,7 +148,7 @@ func TestSessionRequest(t *testing.T) {
 func TestAuthenticatedClient(t *testing.T) {
 	Convey("The right certificate is used", t, func() {
 		fakeCert := tls.Certificate{Certificate: [][]byte{[]byte("test")}}
-		m := &Merchant{merchantCertificate: &fakeCert}
+		m := &Merchant{merchantCertificateTLS: &fakeCert}
 
 		So(
 			m.authenticatedClient().Transport.(*http.Transport).TLSClientConfig.Certificates[0],

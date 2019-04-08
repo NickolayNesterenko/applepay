@@ -20,7 +20,6 @@ import (
 	"crypto/x509"
 	"encoding/binary"
 	"encoding/hex"
-	"encoding/pem"
 	"io/ioutil"
 	"time"
 	"unsafe"
@@ -46,7 +45,7 @@ func (t *PKPaymentToken) verifySignature() error {
 	if err != nil {
 		return errors.Wrap(err, "error decoding the token signature")
 	}
-	root, err := loadRootCertificate(AppleRootCertificatePath)
+	root, err := loadCertificate(AppleRootCertificatePath)
 	if err != nil {
 		return errors.Wrap(err, "error loading the root certificate")
 	}
@@ -140,29 +139,22 @@ func decodeIntermediateAndLeafCert(sign *C.PKCS7_SIGNED) (inter,
 	return
 }
 
-// loadRootCertificate loads the root certificate from the disk
-func loadRootCertificate(path string) (*x509.Certificate, error) {
-	rootPEMBytes, err := ioutil.ReadFile(path)
+// loadCertificate loads the X509 certificate from the DER file.
+func loadCertificate(path string) (*x509.Certificate, error) {
+	certBytes, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, errors.Wrap(err, "error reading the root certificate")
 	}
-	rootPEM, rest := pem.Decode(rootPEMBytes)
-	if rootPEM == nil {
-		return nil, errors.New("error decoding the root certificate")
-	}
-	if rest != nil && len(rest) > 0 {
-		return nil, errors.New("trailing data after the root certificate")
-	}
 
-	root, err := x509.ParseCertificate(rootPEM.Bytes)
+	cert, err := x509.ParseCertificate(certBytes)
 	if err != nil {
 		return nil, errors.Wrap(err, "error parsing the root certificate")
 	}
-	if !root.IsCA {
+	if !cert.IsCA {
 		return nil, errors.New("the certificate seems not to be a CA")
 	}
 
-	return root, nil
+	return cert, nil
 }
 
 // verifyCertificates checks the validity of the certificate chain used for

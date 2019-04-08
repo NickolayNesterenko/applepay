@@ -8,7 +8,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gin-gonic/gin"
-	"github.com/processout/applepay"
+	"github.com/NickolayNesterenko/applepay"
 )
 
 var (
@@ -17,16 +17,16 @@ var (
 
 func init() {
 	var err error
-	applepay.AppleRootCertificatePath = "AppleRootCA-G3.crt"
+	applepay.AppleRootCertificatePath = "AppleRootCA-G3.cer"
 	ap, err = applepay.New(
 		"merchant.com.processout.test",
 		applepay.MerchantDisplayName("ProcessOut Development Store"),
 		applepay.MerchantDomainName("applepay.processout.com"),
-		applepay.MerchantCertificateLocation(
+		applepay.MerchantPemCertificateLocation(
 			"certs/cert-merchant.crt",
 			"certs/cert-merchant-key.pem",
 		),
-		applepay.ProcessingCertificateLocation(
+		applepay.ProcessingPemCertificateLocation(
 			"certs/cert-processing.crt",
 			"certs/cert-processing-key.pem",
 		),
